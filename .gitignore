@@ -8,8 +8,15 @@ yarn-error.log*
 dist/
 build/
 
-# PDF documents
+# PDF documents & generator scripts
 *.pdf
+generate_pdfs.py
+generate_updated_pdfs.py
+
+# AI training artifacts & datasets
+ai-service/model/runs/
+ai-service/model/dataset_sample/
+ai-service/model/yolov8n.pt
 
 # Environment files
 .env.local
