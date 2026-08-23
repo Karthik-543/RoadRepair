@@ -7,9 +7,9 @@ const {
   getAllRepairs,
 } = require('../controllers/repairController');
 const { protect, isAuthority } = require('../middleware/authMiddleware');
-const upload = require('../middleware/uploadMiddleware');
+const { uploadRepairs } = require('../middleware/uploadMiddleware');
 
-router.post('/', protect, isAuthority, upload.single('repairedImage'), createOrUpdateRepair);
+router.post('/', protect, isAuthority, uploadRepairs.single('repairedImage'), createOrUpdateRepair);
 router.post('/assign', protect, isAuthority, assignWorkerToReport);
 router.get('/report/:reportId', protect, getRepairByReportId);
 router.get('/', protect, isAuthority, getAllRepairs);
