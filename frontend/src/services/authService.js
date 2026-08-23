@@ -26,6 +26,8 @@ export const getCurrentUser = async () => {
   return response.data;
 };
 
+export const getMeUser = getCurrentUser;
+
 export const logoutUser = () => {
   localStorage.removeItem('roadsense_token');
   localStorage.removeItem('roadsense_user');
