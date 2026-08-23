@@ -37,7 +37,12 @@ const Register = () => {
         navigate('/citizen-dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please verify credentials.');
+      const serverMsg = err.response?.data?.message;
+      if (serverMsg) {
+        setError(serverMsg);
+      } else {
+        setError('Registration could not be completed. If your email is already registered, please click Sign In below.');
+      }
     } finally {
       setLoading(false);
     }
