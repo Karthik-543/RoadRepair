@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: roadsense-ai
+    env: node
+    buildCommand: npm run install:all && npm run build:frontend
+    startCommand: npm run start:backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        value: mongodb+srv://karthikgodela_db_user:karthik1234@cluster0.5gufyfa.mongodb.net/roadsense_ai?retryWrites=true&w=majority&appName=Cluster0
+      - key: JWT_SECRET
+        value: roadsense_ai_secure_production_secret_key_2026
