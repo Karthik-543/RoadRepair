@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ShieldAlert, LogIn, Lock, Mail, Building2 } from 'lucide-react';
+import { Mail, Lock, AlertCircle } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -18,92 +18,61 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const data = await login({ email, password });
-      if (data.user.role === 'admin') {
+      const user = await login(email, password);
+      if (['engineer', 'supervisor', 'admin'].includes(user.role)) {
         navigate('/admin-dashboard');
       } else {
         navigate('/citizen-dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password credentials.');
+      setError(err.response?.data?.message || 'Login failed. Invalid email or password.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDemoLogin = (demoRole) => {
-    if (demoRole === 'admin') {
-      setEmail('admin@roadsense.gov');
-      setPassword('admin123');
-    } else {
-      setEmail('citizen@roadsense.org');
-      setPassword('citizen123');
-    }
-  };
-
   return (
-    <div className="min-h-[75vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-6 bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
-        
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-blue-900 text-white mb-3 shadow-sm">
-            <ShieldAlert className="w-6 h-6" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Sign In to RoadSense AI</h2>
-          <p className="text-xs text-slate-500 mt-1">Access your citizen dashboard or municipal authority portal</p>
-        </div>
-
-        <div className="bg-slate-100 p-1.5 rounded-lg grid grid-cols-2 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => handleDemoLogin('citizen')}
-            className="py-1.5 px-3 rounded text-slate-700 hover:bg-white hover:shadow-xs transition-colors flex items-center justify-center space-x-1"
-          >
-            <span>Demo Citizen Login</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDemoLogin('admin')}
-            className="py-1.5 px-3 rounded text-blue-900 font-bold hover:bg-white hover:shadow-xs transition-colors flex items-center justify-center space-x-1"
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            <span>Demo Admin Login</span>
-          </button>
+    <div className="min-h-[85vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50">
+      <div className="max-w-md w-full bg-white rounded-lg border border-slate-200 p-8 shadow-sm">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-slate-900">Sign In</h2>
+          <p className="text-sm text-slate-500 mt-1">Access RoadSense AI Portal</p>
         </div>
 
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-md font-medium">
-            {error}
+          <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Email Address</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
                 type="email"
-                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="name@example.com"
-                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-md bg-white text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
+                required
               />
             </div>
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
                 type="password"
-                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="••••••••"
-                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-md bg-white text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
+                required
               />
             </div>
           </div>
@@ -111,20 +80,25 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-md shadow-sm flex items-center justify-center space-x-2 transition-colors mt-2"
+            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-md transition-colors shadow-sm disabled:opacity-50 mt-4"
           >
-            <LogIn className="w-4 h-4" />
-            <span>{loading ? 'Authenticating...' : 'Sign In'}</span>
+            {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
 
-        <div className="text-center border-t border-slate-100 pt-4 text-xs text-slate-600">
-          Don't have a citizen account?{' '}
-          <Link to="/register" className="font-semibold text-blue-700 hover:underline">
-            Register Citizen Account
-          </Link>
+        <div className="mt-6 p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 space-y-1">
+          <p className="font-semibold text-slate-800">Demo Login Credentials:</p>
+          <p>• <b>Citizen</b>: <code>citizen@roadsense.org</code> / <code>citizen123</code></p>
+          <p>• <b>Engineer</b>: <code>engineer@roadsense.gov</code> / <code>engineer123</code></p>
+          <p>• <b>Admin</b>: <code>admin@roadsense.gov</code> / <code>admin123</code></p>
         </div>
 
+        <div className="text-center mt-6 pt-4 border-t border-slate-100 text-xs text-slate-500">
+          Don't have an account?{' '}
+          <Link to="/register" className="text-blue-600 font-semibold hover:underline">
+            Register Here
+          </Link>
+        </div>
       </div>
     </div>
   );

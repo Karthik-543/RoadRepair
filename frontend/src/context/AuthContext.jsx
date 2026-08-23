@@ -1,62 +1,70 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loginUser, registerUser, logoutUser, getCurrentUser } from '../services/authService';
+import { loginUser, registerUser, getMeUser } from '../services/authService';
+import api from '../services/api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const initAuth = async () => {
-      const token = localStorage.getItem('roadsense_token');
-      const storedUser = localStorage.getItem('roadsense_user');
-      if (token && storedUser) {
+      if (token) {
         try {
-          setUser(JSON.parse(storedUser));
-          const res = await getCurrentUser();
+          const res = await getMeUser();
           setUser(res.user);
         } catch (error) {
-          logoutUser();
-          setUser(null);
+          console.error('Failed to load user profile:', error);
+          logout();
         }
       }
       setLoading(false);
     };
     initAuth();
-  }, []);
+  }, [token]);
 
-  const login = async (credentials) => {
-    const data = await loginUser(credentials);
-    setUser(data.user);
-    return data;
+  const login = async (email, password) => {
+    const res = await loginUser({ email, password });
+    localStorage.setItem('token', res.token);
+    setToken(res.token);
+    setUser(res.user);
+    return res.user;
   };
 
   const register = async (userData) => {
-    const data = await registerUser(userData);
-    setUser(data.user);
-    return data;
+    const res = await registerUser(userData);
+    localStorage.setItem('token', res.token);
+    setToken(res.token);
+    setUser(res.user);
+    return res.user;
+  };
+
+  const updateProfile = async (profileData) => {
+    const response = await api.put('/auth/profile', profileData);
+    if (response.data.success) {
+      setUser(response.data.user);
+    }
+    return response.data;
   };
 
   const logout = () => {
-    logoutUser();
+    localStorage.removeItem('token');
+    setToken('');
     setUser(null);
   };
-
-  const isAdmin = user && user.role === 'admin';
-  const isCitizen = user && user.role === 'citizen';
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        token,
         loading,
         login,
         register,
+        updateProfile,
         logout,
-        isAdmin,
-        isCitizen,
-        isAuthenticated: !!user,
       }}
     >
       {children}

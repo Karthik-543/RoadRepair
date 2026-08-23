@@ -7,6 +7,7 @@ const boundingBoxSchema = new mongoose.Schema({
   y2: Number,
   label: String,
   confidence: Number,
+  area: Number,
 });
 
 const reportSchema = new mongoose.Schema(
@@ -40,6 +41,10 @@ const reportSchema = new mongoose.Schema(
         default: 'Unknown Address',
       },
     },
+    wardName: {
+      type: String,
+      default: 'Ward 04 - Central Municipal Zone',
+    },
     originalImage: {
       type: String,
       required: true,
@@ -58,6 +63,19 @@ const reportSchema = new mongoose.Schema(
       default: 0,
     },
     boundingBoxes: [boundingBoxSchema],
+    estimatedDamagedArea: {
+      type: Number,
+      default: 0.5,
+    },
+    roadWidth: {
+      type: Number,
+      default: 7.5,
+    },
+    severityLevel: {
+      type: String,
+      enum: ['Low', 'Medium', 'High', 'Critical'],
+      default: 'Medium',
+    },
     roadCategory: {
       type: String,
       enum: ['Highway', 'Arterial Road', 'Local Street'],
@@ -82,7 +100,7 @@ const reportSchema = new mongoose.Schema(
     },
     priorityLevel: {
       type: String,
-      enum: ['Critical', 'High', 'Medium', 'Low'],
+      enum: ['Very Low', 'Low', 'Medium', 'High', 'Critical'],
       default: 'Medium',
     },
     status: {
@@ -99,9 +117,19 @@ const reportSchema = new mongoose.Schema(
       ref: 'Report',
       default: null,
     },
+    masterReportId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Report',
+      default: null,
+    },
     duplicateCount: {
       type: Number,
       default: 0,
+    },
+    assignedOfficer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
     adminRemarks: {
       type: String,

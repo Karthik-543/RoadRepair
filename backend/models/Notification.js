@@ -19,6 +19,11 @@ const notificationSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    notificationType: {
+      type: String,
+      enum: ['accepted', 'under_inspection', 'repair_started', 'repair_completed', 'rejected', 'general'],
+      default: 'general',
+    },
     read: {
       type: Boolean,
       default: false,

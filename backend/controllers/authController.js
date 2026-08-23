@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const OfficerAccessCode = require('../models/OfficerAccessCode');
+const ActivityLog = require('../models/ActivityLog');
 const jwt = require('jsonwebtoken');
 
 const generateToken = (id) => {
@@ -25,7 +26,9 @@ const register = async (req, res) => {
     let assignedDepartment = 'Public Works Department';
     let validOfficerCode = null;
 
-    if (role === 'admin') {
+    const officerRoles = ['engineer', 'supervisor', 'admin'];
+
+    if (officerRoles.includes(role)) {
       if (!officerId) {
         return res.status(400).json({
           message: 'Municipal Officers must provide a valid Predefined Officer Security ID to register.',
@@ -47,7 +50,7 @@ const register = async (req, res) => {
         });
       }
 
-      assignedRole = 'admin';
+      assignedRole = role;
       assignedDepartment = validOfficerCode.department || department || 'Municipal Public Works';
     }
 
@@ -58,7 +61,7 @@ const register = async (req, res) => {
       role: assignedRole,
       phone: phone || '',
       department: assignedDepartment,
-      officerId: assignedRole === 'admin' ? officerId.trim().toUpperCase() : null,
+      officerId: officerRoles.includes(assignedRole) ? officerId.trim().toUpperCase() : null,
     });
 
     if (validOfficerCode) {
@@ -66,6 +69,13 @@ const register = async (req, res) => {
       validOfficerCode.usedBy = user._id;
       await validOfficerCode.save();
     }
+
+    await ActivityLog.create({
+      user: user._id,
+      action: 'Account Registered',
+      details: `Registered new account with role '${user.role}'`,
+      ipAddress: req.ip || '',
+    });
 
     const token = generateToken(user._id);
 
@@ -104,6 +114,13 @@ const login = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password credentials' });
     }
+
+    await ActivityLog.create({
+      user: user._id,
+      action: 'User Signed In',
+      details: `Logged into system as ${user.role}`,
+      ipAddress: req.ip || '',
+    });
 
     const token = generateToken(user._id);
 
@@ -145,6 +162,45 @@ const getMe = async (req, res) => {
   }
 };
 
+const updateProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const { name, phone, department } = req.body;
+    if (name) user.name = name;
+    if (phone) user.phone = phone;
+    if (department && user.role !== 'citizen') user.department = department;
+
+    await user.save();
+
+    await ActivityLog.create({
+      user: user._id,
+      action: 'Profile Updated',
+      details: 'User updated personal profile details',
+      ipAddress: req.ip || '',
+    });
+
+    return res.json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        department: user.department,
+        officerId: user.officerId,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 const getAvailableOfficerCodes = async (req, res) => {
   try {
     const codes = await OfficerAccessCode.find().select('code department isUsed');
@@ -161,5 +217,6 @@ module.exports = {
   register,
   login,
   getMe,
+  updateProfile,
   getAvailableOfficerCodes,
 };

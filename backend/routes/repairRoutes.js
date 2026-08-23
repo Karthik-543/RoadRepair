@@ -1,15 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const {
-  assignRepair,
-  completeRepair,
+  createOrUpdateRepair,
+  assignWorkerToReport,
   getRepairByReportId,
+  getAllRepairs,
 } = require('../controllers/repairController');
-const { protect, authorize } = require('../middleware/authMiddleware');
-const { uploadRepairs } = require('../middleware/uploadMiddleware');
+const { protect, isAuthority } = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 
-router.post('/assign', protect, authorize('admin'), assignRepair);
-router.post('/complete', protect, authorize('admin'), uploadRepairs.single('repairedImage'), completeRepair);
+router.post('/', protect, isAuthority, upload.single('repairedImage'), createOrUpdateRepair);
+router.post('/assign', protect, isAuthority, assignWorkerToReport);
 router.get('/report/:reportId', protect, getRepairByReportId);
+router.get('/', protect, isAuthority, getAllRepairs);
 
 module.exports = router;

@@ -1,7 +1,8 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -9,18 +10,19 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ProfilePage from './pages/ProfilePage';
 import CitizenDashboard from './pages/CitizenDashboard';
-import SubmitReport from './pages/SubmitReport';
 import AdminDashboard from './pages/AdminDashboard';
-import MapViewPage from './pages/MapViewPage';
+import SubmitReport from './pages/SubmitReport';
 import ReportDetailsPage from './pages/ReportDetailsPage';
+import MapViewPage from './pages/MapViewPage';
 
 function App() {
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <Router>
-          <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+    <Router>
+      <AuthProvider>
+        <NotificationProvider>
+          <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-800 antialiased">
             <Navbar />
             <main className="flex-grow">
               <Routes>
@@ -28,40 +30,60 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/map" element={<MapViewPage />} />
-                <Route path="/reports/:id" element={<ReportDetailsPage />} />
-                
+
                 <Route
-                  path="/submit-report"
+                  path="/profile"
                   element={
-                    <ProtectedRoute requiredRole="citizen">
-                      <SubmitReport />
+                    <ProtectedRoute>
+                      <ProfilePage />
                     </ProtectedRoute>
                   }
                 />
+
                 <Route
                   path="/citizen-dashboard"
                   element={
-                    <ProtectedRoute requiredRole="citizen">
+                    <ProtectedRoute allowedRoles={['citizen']}>
                       <CitizenDashboard />
                     </ProtectedRoute>
                   }
                 />
-                
+
                 <Route
                   path="/admin-dashboard"
                   element={
-                    <ProtectedRoute requiredRole="admin">
+                    <ProtectedRoute allowedRoles={['engineer', 'supervisor', 'admin']}>
                       <AdminDashboard />
                     </ProtectedRoute>
                   }
                 />
+
+                <Route
+                  path="/submit-report"
+                  element={
+                    <ProtectedRoute allowedRoles={['citizen']}>
+                      <SubmitReport />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/reports/:id"
+                  element={
+                    <ProtectedRoute>
+                      <ReportDetailsPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>
             <Footer />
           </div>
-        </Router>
-      </NotificationProvider>
-    </AuthProvider>
+        </NotificationProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

@@ -36,4 +36,14 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { protect, authorize };
+const isAuthority = (req, res, next) => {
+  const authorityRoles = ['engineer', 'supervisor', 'admin'];
+  if (!req.user || !authorityRoles.includes(req.user.role)) {
+    return res.status(403).json({
+      message: 'Access denied: Requires Municipal Officer or Admin authorization privileges',
+    });
+  }
+  next();
+};
+
+module.exports = { protect, authorize, isAuthority };

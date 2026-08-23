@@ -3,6 +3,8 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
 const dns = require('dns');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 
 dotenv.config();
@@ -15,6 +17,21 @@ connectDB();
 
 const app = express();
 
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { message: 'Too many requests from this IP, please try again after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api', apiLimiter);
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -26,12 +43,16 @@ const reportRoutes = require('./routes/reportRoutes');
 const repairRoutes = require('./routes/repairRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const assignmentRoutes = require('./routes/assignmentRoutes');
+const activityLogRoutes = require('./routes/activityLogRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/repairs', repairRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/assignments', assignmentRoutes);
+app.use('/api/activity-logs', activityLogRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', system: 'RoadSense AI Production Server' });

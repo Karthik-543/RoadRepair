@@ -1,61 +1,61 @@
 const calculatePriority = ({
-  damageType,
-  confidence = 0.8,
-  duplicateCount = 0,
+  severityLevel = 'Medium',
   trafficDensity = 'Medium',
-  nearbySchool = false,
   nearbyHospital = false,
+  nearbySchool = false,
+  duplicateCount = 0,
   roadCategory = 'Local Street',
   createdAt = new Date(),
+  confidence = 0.8,
 }) => {
   let score = 0;
 
-  const severityMap = {
-    'Pothole': 50,
-    'Alligator Crack': 40,
-    'Longitudinal Crack': 30,
-    'Transverse Crack': 20,
-    'Road Patch': 10,
-    'Undetected': 10,
+  const severityWeights = {
+    'Critical': 45,
+    'High': 35,
+    'Medium': 25,
+    'Low': 15,
   };
-  score += severityMap[damageType] || 20;
+  score += severityWeights[severityLevel] || 25;
 
-  score += Math.round(confidence * 15);
-
-  score += Math.min(duplicateCount * 10, 30);
-
-  const trafficMap = {
+  const trafficWeights = {
     'High': 20,
     'Medium': 10,
     'Low': 5,
   };
-  score += trafficMap[trafficDensity] || 10;
+  score += trafficWeights[trafficDensity] || 10;
 
   if (nearbyHospital) score += 15;
   if (nearbySchool) score += 15;
 
-  const roadMap = {
+  score += Math.min(duplicateCount * 10, 30);
+
+  const roadWeights = {
     'Highway': 20,
     'Arterial Road': 15,
     'Local Street': 5,
   };
-  score += roadMap[roadCategory] || 5;
+  score += roadWeights[roadCategory] || 5;
 
   const reportAgeInDays = Math.floor((new Date() - new Date(createdAt)) / (1000 * 60 * 60 * 24));
   score += Math.min(reportAgeInDays * 2, 20);
 
-  let priorityLevel = 'Low';
-  if (score >= 75) {
+  score += Math.round(confidence * 10);
+
+  let priorityLevel = 'Very Low';
+  if (score >= 80) {
     priorityLevel = 'Critical';
-  } else if (score >= 55) {
+  } else if (score >= 60) {
     priorityLevel = 'High';
-  } else if (score >= 35) {
+  } else if (score >= 40) {
     priorityLevel = 'Medium';
+  } else if (score >= 25) {
+    priorityLevel = 'Low';
   }
 
   return {
     priorityScore: score,
-    priorityLevel: priorityLevel,
+    priorityLevel,
   };
 };
 

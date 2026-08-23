@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['citizen', 'admin'],
+      enum: ['citizen', 'engineer', 'supervisor', 'admin'],
       default: 'citizen',
     },
     officerId: {
@@ -37,6 +37,10 @@ const userSchema = new mongoose.Schema(
     department: {
       type: String,
       default: 'Public Works Department',
+    },
+    avatar: {
+      type: String,
+      default: '',
     },
   },
   {

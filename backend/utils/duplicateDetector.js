@@ -16,7 +16,16 @@ const getHaversineDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-const checkAndHandleDuplicates = async (newLongitude, newLatitude, newReportId, damageType) => {
+const calculateImageSimilarity = (damageType1, confidence1, damageType2, confidence2) => {
+  if (damageType1 !== damageType2) {
+    return 0.3;
+  }
+  const confDiff = Math.abs(confidence1 - confidence2);
+  const similarityScore = Math.max(0.4, 1.0 - confDiff * 1.5);
+  return similarityScore;
+};
+
+const checkAndHandleDuplicates = async (newLongitude, newLatitude, newReportId, damageType, confidence) => {
   const thresholdMeters = 50;
 
   const existingReports = await Report.find({
@@ -29,35 +38,41 @@ const checkAndHandleDuplicates = async (newLongitude, newLatitude, newReportId, 
     if (report.location && report.location.coordinates && report.location.coordinates.length === 2) {
       const [existingLon, existingLat] = report.location.coordinates;
       const distance = getHaversineDistance(newLatitude, newLongitude, existingLat, existingLon);
+      const similarity = calculateImageSimilarity(damageType, confidence, report.damageType, report.confidence);
 
-      if (distance <= thresholdMeters) {
+      if (distance <= thresholdMeters && similarity >= 0.7) {
+        const masterId = report.masterReportId || report._id;
+
         await Report.findByIdAndUpdate(newReportId, {
           isDuplicate: true,
-          parentReportId: report._id,
+          parentReportId: masterId,
+          masterReportId: masterId,
         });
 
         const updatedDuplicateCount = (report.duplicateCount || 0) + 1;
         
         const { priorityScore, priorityLevel } = calculatePriority({
-          damageType: report.damageType,
-          confidence: report.confidence,
-          duplicateCount: updatedDuplicateCount,
+          severityLevel: report.severityLevel || 'Medium',
           trafficDensity: report.trafficDensity,
           nearbySchool: report.nearbySchool,
           nearbyHospital: report.nearbyHospital,
           roadCategory: report.roadCategory,
+          duplicateCount: updatedDuplicateCount,
           createdAt: report.createdAt,
+          confidence: report.confidence,
         });
 
         await Report.findByIdAndUpdate(report._id, {
           duplicateCount: updatedDuplicateCount,
-          priorityScore: priorityScore,
-          priorityLevel: priorityLevel,
+          priorityScore,
+          priorityLevel,
+          masterReportId: masterId,
         });
 
         return {
           isDuplicate: true,
-          parentReportId: report._id,
+          masterReportId: masterId,
+          duplicateCount: updatedDuplicateCount,
         };
       }
     }
@@ -65,8 +80,9 @@ const checkAndHandleDuplicates = async (newLongitude, newLatitude, newReportId, 
 
   return {
     isDuplicate: false,
-    parentReportId: null,
+    masterReportId: null,
+    duplicateCount: 0,
   };
 };
 
-module.exports = { checkAndHandleDuplicates, getHaversineDistance };
+module.exports = { checkAndHandleDuplicates, getHaversineDistance, calculateImageSimilarity };

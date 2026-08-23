@@ -1,63 +1,74 @@
 import React from 'react';
-import { FileText, Clock, CheckCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle2, XCircle, Users, FileText, Copy, ShieldAlert } from 'lucide-react';
 
-const DashboardStats = ({ summary = {} }) => {
+const DashboardStats = ({ stats }) => {
+  if (!stats) return null;
+
   const cards = [
     {
       title: 'Total Reports',
-      value: summary.totalReports || 0,
+      value: stats.totalReports || 0,
       icon: FileText,
-      color: 'border-l-blue-600 text-blue-900',
-      iconBg: 'bg-blue-50 text-blue-700',
+      color: 'bg-blue-50 text-blue-700 border-blue-200',
     },
     {
-      title: 'Pending Verification',
-      value: summary.pendingReports || 0,
+      title: 'Pending Reports',
+      value: stats.pendingReports || 0,
       icon: Clock,
-      color: 'border-l-amber-500 text-amber-900',
-      iconBg: 'bg-amber-50 text-amber-700',
+      color: 'bg-amber-50 text-amber-700 border-amber-200',
     },
     {
-      title: 'Verified & Assigned',
-      value: (summary.verifiedReports || 0) + (summary.assignedReports || 0),
-      icon: ShieldCheck,
-      color: 'border-l-indigo-600 text-indigo-900',
-      iconBg: 'bg-indigo-50 text-indigo-700',
+      title: 'In Progress',
+      value: stats.inProgressReports || 0,
+      icon: AlertTriangle,
+      color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     },
     {
       title: 'Completed Repairs',
-      value: summary.completedReports || 0,
-      icon: CheckCircle,
-      color: 'border-l-emerald-600 text-emerald-900',
-      iconBg: 'bg-emerald-50 text-emerald-700',
+      value: stats.completedReports || 0,
+      icon: CheckCircle2,
+      color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     },
     {
-      title: 'High / Critical Priority',
-      value: summary.highPriorityCount || 0,
-      icon: AlertTriangle,
-      color: 'border-l-red-600 text-red-900',
-      iconBg: 'bg-red-50 text-red-700',
+      title: 'Critical Reports',
+      value: stats.criticalReports || 0,
+      icon: ShieldAlert,
+      color: 'bg-rose-50 text-rose-700 border-rose-200',
+    },
+    {
+      title: 'Duplicate Reports',
+      value: stats.duplicateReports || 0,
+      icon: Copy,
+      color: 'bg-orange-50 text-orange-700 border-orange-200',
+    },
+    {
+      title: 'Total Users',
+      value: stats.totalUsers || 0,
+      icon: Users,
+      color: 'bg-sky-50 text-sky-700 border-sky-200',
+    },
+    {
+      title: 'Rejected Reports',
+      value: stats.rejectedReports || 0,
+      icon: XCircle,
+      color: 'bg-slate-100 text-slate-700 border-slate-200',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
       {cards.map((card, idx) => {
         const Icon = card.icon;
         return (
           <div
             key={idx}
-            className={`bg-white rounded-lg p-4 border border-slate-200 border-l-4 ${card.color} shadow-sm flex items-center justify-between`}
+            className={`p-4 rounded-lg border shadow-sm flex items-center justify-between ${card.color}`}
           >
             <div>
-              <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                {card.title}
-              </span>
-              <span className="block text-2xl font-bold text-slate-900 mt-1">
-                {card.value}
-              </span>
+              <p className="text-xs font-semibold uppercase tracking-wider opacity-80">{card.title}</p>
+              <h3 className="text-2xl font-bold mt-1">{card.value}</h3>
             </div>
-            <div className={`p-2.5 rounded-lg ${card.iconBg}`}>
+            <div className="p-2.5 rounded-lg bg-white/60 backdrop-blur-sm">
               <Icon className="w-5 h-5" />
             </div>
           </div>

@@ -1,9 +1,10 @@
 const Report = require('../models/Report');
 const Notification = require('../models/Notification');
+const ActivityLog = require('../models/ActivityLog');
+const { calculateSeverity } = require('../utils/severityCalculator');
 const { calculatePriority } = require('../utils/priorityCalculator');
 const { checkAndHandleDuplicates } = require('../utils/duplicateDetector');
 const { detectDamageWithAI } = require('../utils/aiServiceConnector');
-const path = require('path');
 
 const createReport = async (req, res) => {
   try {
@@ -17,6 +18,8 @@ const createReport = async (req, res) => {
       latitude,
       longitude,
       address,
+      wardName,
+      roadWidth,
       roadCategory,
       trafficDensity,
       nearbySchool,
@@ -36,51 +39,81 @@ const createReport = async (req, res) => {
 
     const aiResult = await detectDamageWithAI(absoluteImagePath, filename);
 
-    const { priorityScore, priorityLevel } = calculatePriority({
+    const roadWidthNum = parseFloat(roadWidth) || 7.5;
+
+    const { severityScore, severityLevel, estimatedDamagedArea } = calculateSeverity({
       damageType: aiResult.damageType,
+      boundingBoxes: aiResult.boundingBoxes,
       confidence: aiResult.confidence,
-      duplicateCount: 0,
+      roadWidth: roadWidthNum,
+    });
+
+    const { priorityScore, priorityLevel } = calculatePriority({
+      severityLevel,
       trafficDensity: trafficDensity || 'Medium',
       nearbySchool: nearbySchool === 'true' || nearbySchool === true,
       nearbyHospital: nearbyHospital === 'true' || nearbyHospital === true,
       roadCategory: roadCategory || 'Local Street',
+      duplicateCount: 0,
+      confidence: aiResult.confidence,
     });
 
     const report = await Report.create({
       reporter: req.user._id,
-      title: title || `${aiResult.damageType} Reported`,
+      title: title || `${aiResult.damageType} Incident Reported`,
       description: description || '',
       location: {
         type: 'Point',
         coordinates: [lonNum, latNum],
-        address: address || 'Location Coordinates Captured',
+        address: address || 'Location Coordinates Recorded',
       },
+      wardName: wardName || 'Ward 04 - Central Municipal Zone',
       originalImage: originalImagePath,
       aiDetectedImage: `/uploads/ai_detected/${aiResult.aiDetectedImage}`,
       damageType: aiResult.damageType,
       confidence: aiResult.confidence,
       boundingBoxes: aiResult.boundingBoxes,
+      estimatedDamagedArea,
+      roadWidth: roadWidthNum,
+      severityLevel,
       roadCategory: roadCategory || 'Local Street',
       trafficDensity: trafficDensity || 'Medium',
       nearbySchool: nearbySchool === 'true' || nearbySchool === true,
       nearbyHospital: nearbyHospital === 'true' || nearbyHospital === true,
-      priorityScore: priorityScore,
-      priorityLevel: priorityLevel,
+      priorityScore,
+      priorityLevel,
       status: 'Pending',
     });
 
-    const dupResult = await checkAndHandleDuplicates(lonNum, latNum, report._id, aiResult.damageType);
+    const dupResult = await checkAndHandleDuplicates(
+      lonNum,
+      latNum,
+      report._id,
+      aiResult.damageType,
+      aiResult.confidence
+    );
+
     if (dupResult.isDuplicate) {
       report.isDuplicate = true;
-      report.parentReportId = dupResult.parentReportId;
+      report.parentReportId = dupResult.masterReportId;
+      report.masterReportId = dupResult.masterReportId;
       await report.save();
     }
 
     await Notification.create({
       user: req.user._id,
       report: report._id,
-      title: 'Report Submitted Successfully',
-      message: `Your report for ${report.damageType} has been analyzed with priority level: ${report.priorityLevel}.`,
+      title: 'Report Created Successfully',
+      message: `Your report for ${report.damageType} has been analyzed. Severity: ${report.severityLevel}, Priority: ${report.priorityLevel}.`,
+      notificationType: 'accepted',
+    });
+
+    await ActivityLog.create({
+      user: req.user._id,
+      action: 'Report Submitted',
+      targetReport: report._id,
+      details: `Submitted report '${report.title}' classified as ${report.damageType}`,
+      ipAddress: req.ip || '',
     });
 
     return res.status(201).json({
@@ -94,7 +127,19 @@ const createReport = async (req, res) => {
 
 const getAllReports = async (req, res) => {
   try {
-    const { damageType, status, priority, search, startDate, endDate } = req.query;
+    const {
+      damageType,
+      status,
+      priority,
+      severity,
+      search,
+      wardName,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 50,
+    } = req.query;
+
     let query = {};
 
     if (damageType && damageType !== 'All') {
@@ -109,28 +154,51 @@ const getAllReports = async (req, res) => {
       query.priorityLevel = priority;
     }
 
+    if (severity && severity !== 'All') {
+      query.severityLevel = severity;
+    }
+
+    if (wardName && wardName !== 'All') {
+      query.wardName = wardName;
+    }
+
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
         { 'location.address': { $regex: search, $options: 'i' } },
         { damageType: { $regex: search, $options: 'i' } },
+        { wardName: { $regex: search, $options: 'i' } },
       ];
     }
 
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
+    const sortOptions = {};
+    if (sortBy === 'priorityScore') {
+      sortOptions.priorityScore = sortOrder === 'asc' ? 1 : -1;
+    } else if (sortBy === 'confidence') {
+      sortOptions.confidence = sortOrder === 'asc' ? 1 : -1;
+    } else {
+      sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
     }
 
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 50;
+    const skip = (pageNum - 1) * limitNum;
+
+    const totalCount = await Report.countDocuments(query);
     const reports = await Report.find(query)
-      .populate('reporter', 'name email phone')
-      .populate('parentReportId', 'title status priorityLevel')
-      .sort({ createdAt: -1 });
+      .populate('reporter', 'name email phone role')
+      .populate('masterReportId', 'title status priorityLevel')
+      .populate('assignedOfficer', 'name email department officerId')
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNum);
 
     return res.json({
       success: true,
       count: reports.length,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limitNum),
+      currentPage: pageNum,
       reports,
     });
   } catch (error) {
@@ -142,6 +210,7 @@ const getMyReports = async (req, res) => {
   try {
     const reports = await Report.find({ reporter: req.user._id })
       .populate('reporter', 'name email')
+      .populate('assignedOfficer', 'name email department')
       .sort({ createdAt: -1 });
 
     return res.json({
@@ -158,7 +227,8 @@ const getReportById = async (req, res) => {
   try {
     const report = await Report.findById(req.params.id)
       .populate('reporter', 'name email phone department')
-      .populate('parentReportId');
+      .populate('masterReportId')
+      .populate('assignedOfficer', 'name email department officerId');
 
     if (!report) {
       return res.status(404).json({ message: 'Report not found' });
@@ -175,7 +245,7 @@ const getReportById = async (req, res) => {
 
 const updateReportStatus = async (req, res) => {
   try {
-    const { status, adminRemarks } = req.body;
+    const { status, adminRemarks, assignedOfficer } = req.body;
     const report = await Report.findById(req.params.id);
 
     if (!report) {
@@ -188,14 +258,32 @@ const updateReportStatus = async (req, res) => {
     if (adminRemarks !== undefined) {
       report.adminRemarks = adminRemarks;
     }
+    if (assignedOfficer) {
+      report.assignedOfficer = assignedOfficer;
+    }
 
     await report.save();
+
+    let notifType = 'general';
+    if (status === 'Verified') notifType = 'under_inspection';
+    else if (status === 'Assigned' || status === 'In Progress') notifType = 'repair_started';
+    else if (status === 'Completed') notifType = 'repair_completed';
+    else if (status === 'Rejected') notifType = 'rejected';
 
     await Notification.create({
       user: report.reporter,
       report: report._id,
-      title: `Report Status Updated to ${report.status}`,
-      message: `Your road damage report status has been updated to "${report.status}". ${adminRemarks ? 'Remarks: ' + adminRemarks : ''}`,
+      title: `Report Status Updated: ${report.status}`,
+      message: `Your road damage report status is now "${report.status}". ${adminRemarks ? 'Remarks: ' + adminRemarks : ''}`,
+      notificationType: notifType,
+    });
+
+    await ActivityLog.create({
+      user: req.user._id,
+      action: 'Status Updated',
+      targetReport: report._id,
+      details: `Updated report status to '${report.status}'`,
+      ipAddress: req.ip || '',
     });
 
     return res.json({
@@ -216,6 +304,13 @@ const deleteReport = async (req, res) => {
     }
 
     await report.deleteOne();
+
+    await ActivityLog.create({
+      user: req.user._id,
+      action: 'Report Deleted',
+      details: `Deleted report ID '${req.params.id}'`,
+      ipAddress: req.ip || '',
+    });
 
     return res.json({
       success: true,

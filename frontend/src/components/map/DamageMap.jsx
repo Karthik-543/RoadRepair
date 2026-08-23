@@ -1,40 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { getImageUrl, formatDate, formatConfidence } from '../../utils/formatters';
-import { getPriorityColor } from '../../utils/geoHelpers';
-import StatusBadge from '../common/StatusBadge';
+import 'leaflet/dist/leaflet.css';
 import PriorityBadge from '../common/PriorityBadge';
-import { Link } from 'react-router-dom';
-import { Calendar, User, Eye, CheckCircle2, AlertTriangle } from 'lucide-react';
+import StatusBadge from '../common/StatusBadge';
+import { useNavigate } from 'react-router-dom';
 
-const createCustomMarker = (priorityLevel, status) => {
-  const color = getPriorityColor(priorityLevel);
-  const isCompleted = status === 'Completed';
+delete L.Icon.Default.prototype._getIconUrl;
 
-  const svgIcon = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${color}" width="32" height="32" stroke="#ffffff" stroke-width="1.5">
-      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-      ${isCompleted ? '<circle cx="12" cy="9" r="3" fill="#10b981" />' : ''}
-    </svg>
-  `;
+const createCustomIcon = (priorityLevel) => {
+  let color = '#3b82f6';
+  if (priorityLevel === 'Critical') color = '#ef4444';
+  else if (priorityLevel === 'High') color = '#f97316';
+  else if (priorityLevel === 'Medium') color = '#f59e0b';
+  else if (priorityLevel === 'Low') color = '#10b981';
 
-  return L.divAnchor ? L.divIcon({
-    html: svgIcon,
+  return L.divIcon({
     className: 'custom-leaflet-marker',
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -30],
-  }) : L.divIcon({
-    html: svgIcon,
-    className: 'custom-leaflet-marker',
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -30],
+    html: `<div style="background-color: ${color}; width: 18px; height: 18px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
   });
 };
 
-const ChangeMapView = ({ center }) => {
+const ChangeView = ({ center }) => {
   const map = useMap();
   useEffect(() => {
     if (center && center[0] && center[1]) {
@@ -44,96 +33,48 @@ const ChangeMapView = ({ center }) => {
   return null;
 };
 
-const DamageMap = ({ reports = [], height = '550px', center = [28.6139, 77.2090], zoom = 12 }) => {
-  const validReports = reports.filter(
-    (r) => r.location && r.location.coordinates && r.location.coordinates.length === 2
-  );
-
-  const defaultCenter = validReports.length > 0
-    ? [validReports[0].location.coordinates[1], validReports[0].location.coordinates[0]]
-    : center;
+const DamageMap = ({ reports = [], center = [17.385, 78.4744], zoom = 12 }) => {
+  const navigate = useNavigate();
 
   return (
-    <div style={{ height }} className="w-full rounded-lg overflow-hidden border border-slate-200 shadow-sm relative z-0">
-      <MapContainer
-        center={defaultCenter}
-        zoom={zoom}
-        scrollWheelZoom={true}
-        className="w-full h-full"
-      >
-        <ChangeMapView center={defaultCenter} />
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+    <MapContainer center={center} zoom={zoom} scrollWheelZoom={false} className="w-full h-full z-0 rounded-lg">
+      <ChangeView center={center} />
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      {reports.map((report) => {
+        if (!report.location || !report.location.coordinates || report.location.coordinates.length < 2) {
+          return null;
+        }
+        const [lon, lat] = report.location.coordinates;
+        const icon = createCustomIcon(report.priorityLevel);
 
-        {validReports.map((report) => {
-          const lat = report.location.coordinates[1];
-          const lon = report.location.coordinates[0];
-
-          return (
-            <Marker
-              key={report._id}
-              position={[lat, lon]}
-              icon={createCustomMarker(report.priorityLevel, report.status)}
-            >
-              <Popup className="roadsense-popup shadow-md">
-                <div className="w-64 p-1 text-slate-800">
-                  <div className="relative rounded overflow-hidden mb-2 border border-slate-200 bg-slate-100 h-32">
-                    <img
-                      src={getImageUrl(report.aiDetectedImage || report.originalImage)}
-                      alt={report.damageType}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-1 left-1">
-                      <PriorityBadge priority={report.priorityLevel} score={report.priorityScore} />
-                    </div>
-                    <div className="absolute top-1 right-1">
-                      <StatusBadge status={report.status} />
-                    </div>
-                  </div>
-
-                  <h3 className="font-bold text-sm text-slate-900 leading-snug">{report.title}</h3>
-                  
-                  <div className="mt-1 flex items-center justify-between text-xs text-slate-600 font-medium">
-                    <span>Type: <strong className="text-slate-900">{report.damageType}</strong></span>
-                    <span>AI Conf: <strong className="text-blue-700">{formatConfidence(report.confidence)}</strong></span>
-                  </div>
-
-                  {report.status === 'Completed' && (
-                    <div className="mt-1.5 p-1 bg-emerald-50 border border-emerald-200 rounded text-[11px] text-emerald-800 flex items-center space-x-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                      <span className="font-medium">Repair Completed Verified</span>
-                    </div>
-                  )}
-
-                  <div className="mt-2 text-[11px] text-slate-500 space-y-0.5 border-t border-slate-100 pt-1.5">
-                    <div className="flex items-center space-x-1">
-                      <User className="w-3 h-3 text-slate-400" />
-                      <span>Reporter: {report.reporter?.name || 'Anonymous Citizen'}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="w-3 h-3 text-slate-400" />
-                      <span>Date: {formatDate(report.createdAt)}</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-2.5 pt-1.5 border-t border-slate-100 flex justify-end">
-                    <Link
-                      to={`/reports/${report._id}`}
-                      className="text-xs text-blue-700 hover:text-blue-900 font-semibold flex items-center space-x-1"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>View Full Details</span>
-                    </Link>
-                  </div>
+        return (
+          <Marker key={report._id} position={[lat, lon]} icon={icon}>
+            <Popup>
+              <div className="p-1 max-w-xs space-y-2">
+                <h4 className="font-bold text-slate-900 text-sm leading-snug">{report.title}</h4>
+                <p className="text-xs text-slate-500">{report.location?.address}</p>
+                <div className="flex items-center space-x-2 my-1">
+                  <StatusBadge status={report.status} />
+                  <PriorityBadge level={report.priorityLevel} />
                 </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-      </MapContainer>
-    </div>
+                <div className="text-xs bg-slate-100 p-1.5 rounded text-slate-700">
+                  <span>AI Detection: <b>{report.damageType}</b> ({(report.confidence * 100).toFixed(0)}%)</span>
+                </div>
+                <button
+                  onClick={() => navigate(`/reports/${report._id}`)}
+                  className="w-full py-1 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded transition-colors text-center block mt-2"
+                >
+                  View Report Details
+                </button>
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
+    </MapContainer>
   );
 };
 
